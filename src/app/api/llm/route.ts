@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { ai } from "@/lib/genkit";
 import { LLMGenerateRequest, LLMGenerateResponse, LLMModelType } from "@/types";
 
 export const maxDuration = 60; // 1 minute timeout
 
 // Map model types to actual API model IDs
 const GOOGLE_MODEL_MAP: Record<string, string> = {
-  "gemini-2.5-flash": "gemini-2.5-flash",
-  "gemini-3-flash-preview": "gemini-3-flash-preview",
-  "gemini-3-pro-preview": "gemini-3-pro-preview",
+  "gemini-2.5-flash": "googleai/gemini-2.5-flash",
+  "gemini-3-flash-preview": "googleai/gemini-3-flash-preview",
+  "gemini-3-pro-preview": "googleai/gemini-3-pro-preview",
 };
 
 const OPENAI_MODEL_MAP: Record<string, string> = {
@@ -22,30 +22,18 @@ async function generateWithGoogle(
   temperature: number,
   maxTokens: number
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY not configured");
-  }
-
-  const ai = new GoogleGenAI({ apiKey });
   const modelId = GOOGLE_MODEL_MAP[model];
 
-  const response = await ai.models.generateContent({
+  const response = await ai.generate({
     model: modelId,
-    contents: prompt,
+    prompt: prompt,
     config: {
       temperature,
       maxOutputTokens: maxTokens,
     },
   });
 
-  // Use the convenient .text property that concatenates all text parts
-  const text = response.text;
-  if (!text) {
-    throw new Error("No text in Google AI response");
-  }
-
-  return text;
+  return response.text;
 }
 
 async function generateWithOpenAI(

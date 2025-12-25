@@ -39,3 +39,6 @@ renders/
 
 # .claude
 .claude/settings.local.json
+
+# genkit
+.genkit/

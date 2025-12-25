@@ -47,7 +47,7 @@ Users need a middle ground: visual workflow building with intuitive annotation t
 | Canvas/Drawing | react-konva (Konva.js) |
 | State Management | Zustand |
 | Styling | Tailwind CSS |
-| AI Integration | Google AI Studio API (@google/genai) |
+| AI Integration | Google AI Studio API (@genkit-ai/google-genai) |
 | Deployment | Vercel |
 
 ---
@@ -293,7 +293,7 @@ Output Node         → [image input]
 
 | ID | Requirement | Priority |
 |----|-------------|----------|
-| API-01 | Use @google/genai SDK | Must |
+| API-01 | Use @genkit-ai/google-genai plugin | Must |
 | API-02 | API key provided via environment variable (GEMINI_API_KEY) | Must |
 | API-03 | API route: POST /api/generate | Must |
 | API-04 | Request: { image: base64, prompt: string, aspectRatio?, resolution? } | Must |
@@ -406,6 +406,13 @@ GEMINI_API_KEY=your_api_key_here
 4. Create `.env.local` in project root
 5. Add `GEMINI_API_KEY=your_key`
 6. Restart dev server
+
+### 6.1 Developer Tools
+
+To run the local Genkit Developer UI:
+```bash
+npm run genkit:start
+```
 
 ---
 
@@ -535,28 +542,22 @@ interface OutputNodeData {
 
 ### 10.1 Nano Banana Pro API Reference
 
-**Model:** `gemini-3-pro-image-preview`
+**Model:** `googleai/gemini-3-pro-image-preview`
 
 **Request Format:**
 ```javascript
-const response = await ai.models.generateContent({
-  model: 'gemini-3-pro-image-preview',
-  contents: [
+const response = await ai.generate({
+  model: 'googleai/gemini-3-pro-image-preview',
+  prompt: [
+    { text: prompt },
     { 
-      role: 'user', 
-      parts: [
-        { text: prompt },
-        { 
-          inlineData: { 
-            mimeType: 'image/png', 
-            data: base64Image 
-          } 
-        }
-      ]
+      media: { 
+        url: `data:image/png;base64,...` 
+      } 
     }
   ],
-  generationConfig: {
-    responseModalities: ['Image'],
+  config: {
+    responseModalities: ['IMAGE', 'TEXT'],
     imageConfig: { 
       aspectRatio: '16:9',
       imageSize: '2K' 
@@ -564,11 +565,6 @@ const response = await ai.models.generateContent({
   }
 });
 ```
-
-**Response:**
-- `response.candidates[0].content.parts` contains either:
-  - `{ text: string }` - text response
-  - `{ inlineData: { mimeType: string, data: string } }` - image as base64
 
 ---
 

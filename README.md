@@ -21,7 +21,7 @@ Node Banana is node-based workflow application for generating images with NBP. B
 - **Canvas**: Konva.js / react-konva
 - **State Management**: Zustand
 - **Styling**: Tailwind CSS
-- **AI**: Google Gemini API, OpenAI API
+- **AI**: Google Gemini API (@genkit-ai/google-genai), OpenAI API
 
 ## Getting Started
 
@@ -59,6 +59,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npm run build
 npm run start
 ```
+
+### Genkit Developer Tools
+
+To start the Genkit Developer UI (for testing models and flows):
+
+```bash
+npm run genkit:start
+```
+This will start the Next.js app and the Genkit UI (http://localhost:4000).
 
 ## Example Workflows
 
