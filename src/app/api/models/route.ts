@@ -34,8 +34,9 @@ export async function GET() {
                 const metadata = action.__action || action;
                 const type = metadata.actionType || (metadata.key && metadata.key.startsWith('model/') ? 'model' : null);
                 // Allow both standard models and background models (often used for long-running tasks like Video)
-                // return type === 'model' || type === 'background-model';
-                return type === 'background-model';
+                return type === 'model' || type === 'background-model';
+                // return type === 'background-model'; // VEO models are background models!
+
             })
             .map((action: any) => {
                 const metadata = action.__action || action;

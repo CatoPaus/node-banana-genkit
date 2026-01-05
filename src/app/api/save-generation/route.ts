@@ -50,9 +50,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (image && !finalUrl) {
-      filename += ".png";
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
+      // Check for Data URI mime type logic
+      // e.g. data:video/mp4;base64,... or data:image/png;base64,...
+      const match = image.match(/^data:(image|video)\/(\w+);base64,/);
+      const mimeType = match ? match[1] : 'image';
+      // const extension = match ? match[2] : 'png'; // e.g. mp4, png, jpeg
+
+      if (mimeType === 'video') {
+        filename += ".mp4";
+      } else {
+        filename += ".png";
+      }
+
+      // Remove prefix. We use a generic regex to catch image/png, video/mp4 etc.
+      const base64Data = image.replace(/^data:\w+\/\w+;base64,/, "");
       buffer = Buffer.from(base64Data, "base64");
+
     } else if (finalUrl) {
       // Resolve relative URLs to localhost
       let fetchUrl = finalUrl;
@@ -69,7 +82,6 @@ export async function POST(request: NextRequest) {
         // Default fallbacks? Or check headers?
         // For now, if no extension, default to png unless we verify otherwise
         // But since we added &ext=.mp4 to video proxy, this should work.
-        // If not, we might be saving an image from a URL.
         filename += ".png";
       }
 
