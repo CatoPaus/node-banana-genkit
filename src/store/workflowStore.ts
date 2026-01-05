@@ -15,8 +15,8 @@ import {
   ImageInputNodeData,
   AnnotationNodeData,
   PromptNodeData,
-  NanoBananaNodeData,
-  LLMGenerateNodeData,
+  UniversalGeneratorNodeData,
+
   SplitGridNodeData,
   OutputNodeData,
   WorkflowNodeData,
@@ -24,6 +24,8 @@ import {
   WorkflowSaveConfig,
   NodeGroup,
   GroupColor,
+  AIProvider,
+  ModelInfo,
 } from "@/types";
 import { useToast } from "@/components/Toast";
 
@@ -52,6 +54,17 @@ interface WorkflowStore {
   edgeStyle: EdgeStyle;
   clipboard: ClipboardData | null;
   groups: Record<string, NodeGroup>;
+
+  // AI Provider
+  // AI Service Provider
+  provider: AIProvider;
+  setProvider: (provider: AIProvider) => void;
+
+  // Models
+  availableModels: ModelInfo[];
+  favoriteModelIds: string[];
+  fetchModels: () => Promise<void>;
+  toggleFavoriteModel: (modelId: string) => void;
 
   // Settings
   setEdgeStyle: (style: EdgeStyle) => void;
@@ -145,8 +158,8 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
       return {
         prompt: "",
       } as PromptNodeData;
-    case "nanoBanana": {
-      const defaults = loadNanoBananaDefaults();
+    case "universalGenerator": {
+      const defaults = loadUniversalGeneratorDefaults();
       return {
         inputImages: [],
         inputPrompt: null,
@@ -157,19 +170,9 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         useGoogleSearch: defaults.useGoogleSearch,
         status: "idle",
         error: null,
-      } as NanoBananaNodeData;
+      } as UniversalGeneratorNodeData;
     }
-    case "llmGenerate":
-      return {
-        inputPrompt: null,
-        outputText: null,
-        provider: "google",
-        model: "gemini-3-flash-preview",
-        temperature: 0.7,
-        maxTokens: 8192,
-        status: "idle",
-        error: null,
-      } as LLMGenerateNodeData;
+
     case "splitGrid":
       return {
         sourceImage: null,
@@ -178,7 +181,7 @@ const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         generateSettings: {
           aspectRatio: "1:1",
           resolution: "1K",
-          model: "nano-banana-pro",
+          model: "vertexai/imagen-3.0-generate-001",
           useGoogleSearch: false,
         },
         childNodeIds: [],
@@ -216,36 +219,48 @@ const GROUP_COLOR_ORDER: GroupColor[] = [
 // localStorage helpers for auto-save configs
 const STORAGE_KEY = "node-banana-workflow-configs";
 
-// localStorage helpers for NanoBanana sticky settings
-const NANO_BANANA_DEFAULTS_KEY = "node-banana-nanoBanana-defaults";
+// localStorage helpers for UniversalGenerator sticky settings
+const UNIVERSAL_GENERATOR_DEFAULTS_KEY = "node-banana-universalGenerator-defaults";
 
-interface NanoBananaDefaults {
+const PROVIDER_KEY = "node-banana-ai-provider";
+const FAVORITES_KEY = "node-banana-model-favorites";
+
+interface UniversalGeneratorDefaults {
   aspectRatio: string;
   resolution: string;
   model: string;
   useGoogleSearch: boolean;
 }
 
-const loadNanoBananaDefaults = (): NanoBananaDefaults => {
-  if (typeof window === "undefined") {
-    return { aspectRatio: "1:1", resolution: "1K", model: "nano-banana-pro", useGoogleSearch: false };
-  }
-  const stored = localStorage.getItem(NANO_BANANA_DEFAULTS_KEY);
+const loadUniversalGeneratorDefaults = (): UniversalGeneratorDefaults => {
+  const defaults = { aspectRatio: "1:1", resolution: "1K", model: "vertexai/imagen-3.0-generate-001", useGoogleSearch: false };
+  if (typeof window === "undefined") return defaults;
+
+  const stored = localStorage.getItem(UNIVERSAL_GENERATOR_DEFAULTS_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      // Migrate legacy models
+      if (parsed.model === "nano-banana" || parsed.model === "nano-banana-pro") {
+        parsed.model = "vertexai/imagen-3.0-generate-001";
+      }
+      // Fix: VertexAI Gemini 3 is broken, force GoogleAI version if selected
+      if (parsed.model && parsed.model.includes("vertexai/gemini-3")) {
+        parsed.model = parsed.model.replace("vertexai/", "googleai/");
+      }
+      return { ...defaults, ...parsed };
     } catch {
-      return { aspectRatio: "1:1", resolution: "1K", model: "nano-banana-pro", useGoogleSearch: false };
+      return defaults;
     }
   }
-  return { aspectRatio: "1:1", resolution: "1K", model: "nano-banana-pro", useGoogleSearch: false };
+  return defaults;
 };
 
-export const saveNanoBananaDefaults = (settings: Partial<NanoBananaDefaults>) => {
+export const saveUniversalGeneratorDefaults = (settings: Partial<UniversalGeneratorDefaults>) => {
   if (typeof window === "undefined") return;
-  const current = loadNanoBananaDefaults();
+  const current = loadUniversalGeneratorDefaults();
   const updated = { ...current, ...settings };
-  localStorage.setItem(NANO_BANANA_DEFAULTS_KEY, JSON.stringify(updated));
+  localStorage.setItem(UNIVERSAL_GENERATOR_DEFAULTS_KEY, JSON.stringify(updated));
 };
 
 const generateWorkflowId = () =>
@@ -264,6 +279,27 @@ const saveSaveConfig = (config: WorkflowSaveConfig) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
 };
 
+const loadProvider = (): AIProvider => {
+  if (typeof window === "undefined") return "googleai";
+  return (localStorage.getItem(PROVIDER_KEY) as AIProvider) || "googleai";
+};
+
+const saveProvider = (provider: AIProvider) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(PROVIDER_KEY, provider);
+};
+
+const loadFavorites = (): string[] => {
+  if (typeof window === "undefined") return [];
+  const stored = localStorage.getItem(FAVORITES_KEY);
+  return stored ? JSON.parse(stored) : [];
+};
+
+const saveFavorites = (favorites: string[]) => {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+};
+
 export { generateWorkflowId };
 
 export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
@@ -272,12 +308,37 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   edgeStyle: "curved" as EdgeStyle,
   clipboard: null,
   groups: {},
-  isRunning: false,
-  currentNodeId: null,
-  pausedAtNodeId: null,
-  globalImageHistory: [],
 
-  // Auto-save initial state
+  // AI Provider & Models
+  provider: loadProvider(),
+  setProvider: (provider: AIProvider) => {
+    saveProvider(provider);
+    set({ provider });
+  },
+  availableModels: [],
+  favoriteModelIds: loadFavorites(),
+  fetchModels: async () => {
+    try {
+      const res = await fetch("/api/models");
+      const data = await res.json();
+      if (data.success && data.models) {
+        console.log("Fetched Models:", data.models);
+        set({ availableModels: data.models });
+      }
+    } catch (error) {
+      console.error("Failed to fetch models:", error);
+    }
+  },
+  toggleFavoriteModel: (modelId: string) => {
+    const { favoriteModelIds } = get();
+    const newFavorites = favoriteModelIds.includes(modelId)
+      ? favoriteModelIds.filter((id) => id !== modelId)
+      : [...favoriteModelIds, modelId];
+
+    saveFavorites(newFavorites);
+    set({ favoriteModelIds: newFavorites });
+  },
+
   workflowId: null,
   workflowName: null,
   saveDirectoryPath: null,
@@ -286,6 +347,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   hasUnsavedChanges: false,
   autoSaveEnabled: true,
   isSaving: false,
+
+  isRunning: false,
+  currentNodeId: null,
+  pausedAtNodeId: null,
+  globalImageHistory: [],
 
   setEdgeStyle: (style: EdgeStyle) => {
     set({ edgeStyle: style });
@@ -299,8 +365,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       imageInput: { width: 300, height: 280 },
       annotation: { width: 300, height: 280 },
       prompt: { width: 320, height: 220 },
-      nanoBanana: { width: 300, height: 300 },
-      llmGenerate: { width: 320, height: 360 },
+      universalGenerator: { width: 300, height: 300 },
+
       splitGrid: { width: 300, height: 320 },
       output: { width: 320, height: 320 },
     };
@@ -495,8 +561,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       imageInput: { width: 300, height: 280 },
       annotation: { width: 300, height: 280 },
       prompt: { width: 320, height: 220 },
-      nanoBanana: { width: 300, height: 300 },
-      llmGenerate: { width: 320, height: 360 },
+      universalGenerator: { width: 300, height: 300 },
+
       splitGrid: { width: 300, height: 320 },
       output: { width: 320, height: 320 },
     };
@@ -606,12 +672,12 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       nodes: state.nodes.map((node) =>
         node.groupId === groupId
           ? {
-              ...node,
-              position: {
-                x: node.position.x + delta.x,
-                y: node.position.y + delta.y,
-              },
-            }
+            ...node,
+            position: {
+              x: node.position.x + delta.x,
+              y: node.position.y + delta.y,
+            },
+          }
           : node
       ) as WorkflowNode[],
       hasUnsavedChanges: true,
@@ -652,8 +718,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           } else if (sourceNode.type === "annotation") {
             const sourceImage = (sourceNode.data as AnnotationNodeData).outputImage;
             if (sourceImage) images.push(sourceImage);
-          } else if (sourceNode.type === "nanoBanana") {
-            const sourceImage = (sourceNode.data as NanoBananaNodeData).outputImage;
+          } else if (sourceNode.type === "universalGenerator") {
+            const sourceImage = (sourceNode.data as UniversalGeneratorNodeData).outputImage;
             if (sourceImage) images.push(sourceImage);
           }
         }
@@ -661,8 +727,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         if (handleId === "text") {
           if (sourceNode.type === "prompt") {
             text = (sourceNode.data as PromptNodeData).prompt;
-          } else if (sourceNode.type === "llmGenerate") {
-            text = (sourceNode.data as LLMGenerateNodeData).outputText;
           }
         }
       });
@@ -680,9 +744,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       return { valid: false, errors };
     }
 
-    // Check each Nano Banana node has required inputs
+    // Check each Universal Generator node has required inputs
     nodes
-      .filter((n) => n.type === "nanoBanana")
+      .filter((n) => n.type === "universalGenerator")
       .forEach((node) => {
         const imageConnected = edges.some(
           (e) => e.target === node.id && e.targetHandle === "image"
@@ -691,9 +755,6 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           (e) => e.target === node.id && e.targetHandle === "text"
         );
 
-        if (!imageConnected) {
-          errors.push(`Generate node "${node.id}" missing image input`);
-        }
         if (!textConnected) {
           errors.push(`Generate node "${node.id}" missing text input`);
         }
@@ -813,13 +874,13 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             // Nothing to execute, data is already set
             break;
 
-          case "nanoBanana": {
+          case "universalGenerator": {
             const { images, text } = getConnectedInputs(node.id);
 
-            if (images.length === 0 || !text) {
+            if (!text) {
               updateNodeData(node.id, {
                 status: "error",
-                error: "Missing image or text input",
+                error: "Missing text input",
               });
               set({ isRunning: false, currentNodeId: null });
               return;
@@ -833,16 +894,76 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             });
 
             try {
-              const nodeData = node.data as NanoBananaNodeData;
+              const nodeData = node.data as UniversalGeneratorNodeData;
 
-              const requestPayload = {
+              // Extract known keys to separate from dynamic config
+              // Explicitly exclude 'resolution' (legacy) and internal UI state so they don't pollute dynamicConfig
+              const {
+                model,
+                image,
+                output,
+                status,
+                error,
+                userPrompt,
+                resolution,
+                outputImage,
+                inputPrompt,
+                inputImages,
+                useGoogleSearch, // Todo: Handle grounding separately if needed
+                ...dynamicConfig
+              } = nodeData;
+
+              const requestPayload: any = {
                 images,
                 prompt: text,
-                aspectRatio: nodeData.aspectRatio,
-                resolution: nodeData.resolution,
                 model: nodeData.model,
-                useGoogleSearch: nodeData.useGoogleSearch,
+                ...dynamicConfig // Pass all dynamic options (aspectRatio, etc)
               };
+
+              // Handle Upscale Config
+              if (dynamicConfig.upscaleFactor) {
+                requestPayload.upscaleConfig = {
+                  upscaleFactor: dynamicConfig.upscaleFactor
+                };
+                requestPayload.mode = 'upscale';
+                // Vertex AI Upscale API might not want sampleImageSize or aspectRatio
+                delete requestPayload.sampleImageSize;
+                delete requestPayload.aspectRatio;
+                // Also remove upscaleFactor from root as it's now in upscaleConfig
+                delete requestPayload.upscaleFactor;
+              }
+
+              // Sanitize: validation for non-Imagen models
+              // Gemini models (googleai/...) reject 'aspectRatio' in generation_config
+              if (!nodeData.model.includes('imagen') && requestPayload.aspectRatio) {
+                delete requestPayload.aspectRatio;
+              }
+
+
+
+              // Explicitly set safetySetting to avoid "block_none" default error from Vertex AI
+              // This is specific to Imagen models; Gemini (Google AI) rejects this field in generation_config
+              if (nodeData.model.includes('imagen') && !requestPayload.safetySetting) {
+                requestPayload.safetySetting = 'block_few';
+              } else if (!nodeData.model.includes('imagen') && requestPayload.safetySetting) {
+                delete requestPayload.safetySetting;
+              }
+
+              // Global Constraint Check: Vertex AI errors if Seed is present when Watermark is enabled
+              // The API defaults additionalWatermark to TRUE if omitted.
+              // Therefore, if a Seed is provided, we MUST explicitly set addWatermark to FALSE to avoid the error.
+              if (requestPayload.seed) {
+                requestPayload.addWatermark = false;
+              }
+              // Conversely, if the user EXPLICITLY requested Watermark=true (via UI checkbox),
+              // then we should probably remove the seed to respect their explicit choice?
+              // But 'seed' is usually the more specific intent.
+              // Let's rely on the above: If you set a seed, you lose the watermark.
+
+              // Fallback safety: If for some reason addWatermark is still true (e.g. override), remove seed
+              if (requestPayload.addWatermark === true && requestPayload.seed) {
+                delete requestPayload.seed;
+              }
 
               const response = await fetch("/api/generate", {
                 method: "POST",
@@ -871,45 +992,102 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
               }
 
               const result = await response.json();
+              let outputUrl = result.output || result.image;
+              let allOutputs: Array<{ url: string }> = [];
 
-              if (result.success && result.image) {
+              // Check for operation ID (Veo video generation)
+              if (result.operationId) {
+                updateNodeData(node.id, { operationId: result.operationId, status: "loading" });
+
+                // Poll for completion
+                let attempts = 0;
+                let pollSuccess = false;
+
+                while (attempts < 120) { // 10 minutes max
+                  await new Promise(r => setTimeout(r, 5000));
+
+                  const pollRes = await fetch(`/api/operations?id=${encodeURIComponent(result.operationId)}`);
+                  if (pollRes.ok) {
+                    const pollData = await pollRes.json();
+
+                    if (pollData.done) {
+                      if (pollData.error) {
+                        throw new Error(pollData.error.message || "Operation failed");
+                      }
+
+                      // Extract output from completed operation
+                      if (pollData.medias && pollData.medias.length > 0) {
+                        // Use first video for node output
+                        outputUrl = pollData.medias[0].url;
+                        pollSuccess = true;
+                        allOutputs = pollData.medias;
+                      } else if (pollData.media && pollData.media.url) {
+                        outputUrl = pollData.media.url;
+                        pollSuccess = true;
+                        allOutputs = [{ url: outputUrl }];
+                      }
+                      break;
+                    }
+                  }
+                  attempts++;
+                }
+
+                if (!pollSuccess) {
+                  throw new Error("Video generation timed out");
+                }
+              }
+
+              if (result.success && outputUrl) {
                 // Save the newly generated image to global history
                 get().addToGlobalHistory({
-                  image: result.image,
+                  image: outputUrl,
                   timestamp: Date.now(),
                   prompt: text,
                   aspectRatio: nodeData.aspectRatio,
                   model: nodeData.model,
                 });
                 updateNodeData(node.id, {
-                  outputImage: result.image,
-                  status: "complete",
+                  output: outputUrl,
+                  image: outputUrl,
+                  status: "success",
                   error: null,
                 });
 
-                // Auto-save to generations folder if configured
-                const genPath = get().generationsPath;
-                if (genPath) {
-                  fetch("/api/save-generation", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      directoryPath: genPath,
-                      image: result.image,
-                      prompt: text,
-                    }),
-                  }).catch((err) => {
-                    console.error("Failed to save generation:", err);
+                // Auto-save to generations folder if configured (or default to 'generations')
+                const genPath = get().generationsPath || "generations";
+
+                // Fallback: If allOutputs is empty but we have a single outputUrl, use that
+                if (allOutputs.length === 0 && outputUrl) {
+                  allOutputs.push({ url: outputUrl });
+                }
+
+                if (genPath && allOutputs.length > 0) {
+                  // Loop through all outputs and save them
+                  allOutputs.forEach((item, index) => {
+                    fetch("/api/save-generation", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        directoryPath: genPath,
+                        image: item.url.startsWith('http') ? undefined : item.url,
+                        url: item.url.startsWith('http') ? item.url : undefined,
+                        prompt: text + (allOutputs.length > 1 ? `_${index + 1}` : ''), // Append index if multiple
+                      }),
+                    }).catch((err) => {
+                      console.error("Failed to save generation:", err);
+                    });
                   });
                 }
               } else {
                 updateNodeData(node.id, {
                   status: "error",
-                  error: result.error || "Generation failed",
+                  error: result.error || "Generation failed (No output returned)",
                 });
                 set({ isRunning: false, currentNodeId: null });
                 return;
               }
+              set({ isRunning: false, currentNodeId: null });
+              return;
             } catch (error) {
               let errorMessage = "Generation failed";
               if (error instanceof DOMException && error.name === 'AbortError') {
@@ -932,81 +1110,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             break;
           }
 
-          case "llmGenerate": {
-            const { text } = getConnectedInputs(node.id);
 
-            if (!text) {
-              updateNodeData(node.id, {
-                status: "error",
-                error: "Missing text input",
-              });
-              set({ isRunning: false, currentNodeId: null });
-              return;
-            }
-
-            updateNodeData(node.id, {
-              inputPrompt: text,
-              status: "loading",
-              error: null,
-            });
-
-            try {
-              const nodeData = node.data as LLMGenerateNodeData;
-              const response = await fetch("/api/llm", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  prompt: text,
-                  provider: nodeData.provider,
-                  model: nodeData.model,
-                  temperature: nodeData.temperature,
-                  maxTokens: nodeData.maxTokens,
-                }),
-              });
-
-              if (!response.ok) {
-                const errorText = await response.text();
-                let errorMessage = `HTTP ${response.status}`;
-                try {
-                  const errorJson = JSON.parse(errorText);
-                  errorMessage = errorJson.error || errorMessage;
-                } catch {
-                  if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
-                }
-                updateNodeData(node.id, {
-                  status: "error",
-                  error: errorMessage,
-                });
-                set({ isRunning: false, currentNodeId: null });
-                return;
-              }
-
-              const result = await response.json();
-
-              if (result.success && result.text) {
-                updateNodeData(node.id, {
-                  outputText: result.text,
-                  status: "complete",
-                  error: null,
-                });
-              } else {
-                updateNodeData(node.id, {
-                  status: "error",
-                  error: result.error || "LLM generation failed",
-                });
-                set({ isRunning: false, currentNodeId: null });
-                return;
-              }
-            } catch (error) {
-              updateNodeData(node.id, {
-                status: "error",
-                error: error instanceof Error ? error.message : "LLM generation failed",
-              });
-              set({ isRunning: false, currentNodeId: null });
-              return;
-            }
-            break;
-          }
 
           case "splitGrid": {
             const { images } = getConnectedInputs(node.id);
@@ -1116,18 +1220,18 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     set({ isRunning: true, currentNodeId: nodeId });
 
     try {
-      if (node.type === "nanoBanana") {
-        const nodeData = node.data as NanoBananaNodeData;
+      if (node.type === "universalGenerator") {
+        const nodeData = node.data as UniversalGeneratorNodeData;
 
         // Always get fresh connected inputs first, fall back to stored inputs only if not connected
         const inputs = getConnectedInputs(nodeId);
         let images = inputs.images.length > 0 ? inputs.images : nodeData.inputImages;
         let text = inputs.text ?? nodeData.inputPrompt;
 
-        if (!images || images.length === 0 || !text) {
+        if (!text) {
           updateNodeData(nodeId, {
             status: "error",
-            error: "Missing image or text input",
+            error: "Missing connected text prompt",
           });
           set({ isRunning: false, currentNodeId: null });
           return;
@@ -1138,16 +1242,17 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           error: null,
         });
 
+        // Extract known keys to separate from dynamic config for regenerate too
+        const { model, image, output, status, error, inputImages, inputPrompt, resolution, ...dynamicConfig } = nodeData;
+
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             images,
             prompt: text,
-            aspectRatio: nodeData.aspectRatio,
-            resolution: nodeData.resolution,
             model: nodeData.model,
-            useGoogleSearch: nodeData.useGoogleSearch,
+            ...dynamicConfig // Pass dynamic options like imageSize, aspectRatio
           }),
         });
 
@@ -1166,34 +1271,87 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         }
 
         const result = await response.json();
-        if (result.success && result.image) {
+        let finalOutputUrl = result.image || result.output;
+        let allOutputs: Array<{ url: string }> = [];
+
+        // Check for operation ID (Veo video generation)
+        if (result.operationId) {
+          updateNodeData(nodeId, { operationId: result.operationId, status: "loading" });
+
+          // Poll for completion
+          let attempts = 0;
+          let pollSuccess = false;
+
+          while (attempts < 120) { // 10 minutes max
+            await new Promise(r => setTimeout(r, 5000));
+
+            const pollRes = await fetch(`/api/operations?id=${encodeURIComponent(result.operationId)}`);
+            if (pollRes.ok) {
+              const pollData = await pollRes.json();
+
+              if (pollData.done) {
+                if (pollData.error) {
+                  throw new Error(pollData.error.message || "Operation failed");
+                }
+
+                // Extract output from completed operation
+                if (pollData.medias && pollData.medias.length > 0) {
+                  finalOutputUrl = pollData.medias[0].url;
+                  pollSuccess = true;
+                  allOutputs = pollData.medias;
+                } else if (pollData.media && pollData.media.url) {
+                  finalOutputUrl = pollData.media.url;
+                  pollSuccess = true;
+                  allOutputs = [{ url: finalOutputUrl }];
+                }
+                break;
+              }
+            }
+            attempts++;
+          }
+
+          if (!pollSuccess) {
+            throw new Error("Video generation timed out");
+          }
+        }
+
+        if (result.success && finalOutputUrl) {
           // Save the newly generated image to global history
           get().addToGlobalHistory({
-            image: result.image,
+            image: finalOutputUrl,
             timestamp: Date.now(),
             prompt: text,
             aspectRatio: nodeData.aspectRatio,
             model: nodeData.model,
           });
           updateNodeData(nodeId, {
-            outputImage: result.image,
+            outputImage: finalOutputUrl, // Use finalOutputUrl not result.image which might be null
             status: "complete",
             error: null,
           });
 
-          // Auto-save to generations folder if configured
-          const genPath = get().generationsPath;
-          if (genPath) {
-            fetch("/api/save-generation", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                directoryPath: genPath,
-                image: result.image,
-                prompt: text,
-              }),
-            }).catch((err) => {
-              console.error("Failed to save generation:", err);
+          // Auto-save to generations folder if configured (or default to 'generations')
+          const genPath = get().generationsPath || "generations";
+
+          // Fallback: If allOutputs is empty but we have a single finalOutputUrl, use that
+          if (allOutputs.length === 0 && finalOutputUrl) {
+            allOutputs.push({ url: finalOutputUrl });
+          }
+
+          if (genPath && allOutputs.length > 0) {
+            allOutputs.forEach((item, index) => {
+              fetch("/api/save-generation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  directoryPath: genPath,
+                  image: item.url.startsWith('http') ? undefined : item.url,
+                  url: item.url.startsWith('http') ? item.url : undefined,
+                  prompt: text + (allOutputs.length > 1 ? `_${index + 1}` : ''),
+                }),
+              }).catch((err) => {
+                console.error("Failed to save generation:", err);
+              });
             });
           }
         } else {
@@ -1202,66 +1360,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             error: result.error || "Generation failed",
           });
         }
-      } else if (node.type === "llmGenerate") {
-        const nodeData = node.data as LLMGenerateNodeData;
 
-        // Always get fresh connected input first, fall back to stored input only if not connected
-        const inputs = getConnectedInputs(nodeId);
-        const text = inputs.text ?? nodeData.inputPrompt;
 
-        if (!text) {
-          updateNodeData(nodeId, {
-            status: "error",
-            error: "Missing text input",
-          });
-          set({ isRunning: false, currentNodeId: null });
-          return;
-        }
-
-        updateNodeData(nodeId, {
-          status: "loading",
-          error: null,
-        });
-
-        const response = await fetch("/api/llm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: text,
-            provider: nodeData.provider,
-            model: nodeData.model,
-            temperature: nodeData.temperature,
-            maxTokens: nodeData.maxTokens,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorMessage = `HTTP ${response.status}`;
-          try {
-            const errorJson = JSON.parse(errorText);
-            errorMessage = errorJson.error || errorMessage;
-          } catch {
-            if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
-          }
-          updateNodeData(nodeId, { status: "error", error: errorMessage });
-          set({ isRunning: false, currentNodeId: null });
-          return;
-        }
-
-        const result = await response.json();
-        if (result.success && result.text) {
-          updateNodeData(nodeId, {
-            outputText: result.text,
-            status: "complete",
-            error: null,
-          });
-        } else {
-          updateNodeData(nodeId, {
-            status: "error",
-            error: result.error || "LLM generation failed",
-          });
-        }
       }
 
       set({ isRunning: false, currentNodeId: null });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { generateWorkflowId, useWorkflowStore } from "@/store/workflowStore";
+import { AIProvider } from "@/types";
 
 interface ProjectSetupModalProps {
   isOpen: boolean;
@@ -16,11 +17,12 @@ export function ProjectSetupModal({
   onSave,
   mode,
 }: ProjectSetupModalProps) {
-  const { workflowName, saveDirectoryPath, generationsPath } = useWorkflowStore();
+  const { workflowName, saveDirectoryPath, generationsPath, provider, setProvider } = useWorkflowStore();
 
   const [name, setName] = useState("");
   const [directoryPath, setDirectoryPath] = useState("");
   const [genPath, setGenPath] = useState("");
+  const [selectedProvider, setSelectedProvider] = useState<AIProvider>("googleai");
   const [isValidating, setIsValidating] = useState(false);
   const [isBrowsingWorkflow, setIsBrowsingWorkflow] = useState(false);
   const [isBrowsingGen, setIsBrowsingGen] = useState(false);
@@ -28,10 +30,16 @@ export function ProjectSetupModal({
 
   // Pre-fill when opening in settings mode
   useEffect(() => {
+    // Fetch models whenever the modal opens to ensure we have the latest list
+    if (isOpen) {
+      useWorkflowStore.getState().fetchModels();
+    }
+
     if (isOpen && mode === "settings") {
       setName(workflowName || "");
       setDirectoryPath(saveDirectoryPath || "");
       setGenPath(generationsPath || "");
+      setSelectedProvider(provider);
     } else if (isOpen && mode === "new") {
       setName("");
       setDirectoryPath("");
@@ -126,6 +134,7 @@ export function ProjectSetupModal({
 
       const id = mode === "new" ? generateWorkflowId() : useWorkflowStore.getState().workflowId || generateWorkflowId();
       onSave(id, name.trim(), directoryPath.trim(), genPath.trim() || null);
+      setProvider(selectedProvider);
       setIsValidating(false);
     } catch (err) {
       setError(
@@ -224,6 +233,138 @@ export function ProjectSetupModal({
             <p className="text-xs text-neutral-500 mt-1">
               Generated images will be automatically saved here
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-neutral-400 mb-2">
+              AI Provider
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              <div
+                onClick={() => setSelectedProvider("googleai")}
+                className={`p-3 rounded border cursor-pointer transition-colors ${selectedProvider === "googleai"
+                  ? "bg-neutral-700 border-blue-500 ring-1 ring-blue-500"
+                  : "bg-neutral-900 border-neutral-700 hover:border-neutral-500"
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded-full ${selectedProvider === "googleai" ? "bg-blue-500" : "bg-neutral-600"}`} />
+                  <span className="text-sm font-medium text-neutral-100">Google AI</span>
+                </div>
+                <div className="text-[10px] text-neutral-400 space-y-1 pl-5">
+                  <div>• Code Execution</div>
+                  <div>• Context Caching</div>
+                  <div>• File Search</div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setSelectedProvider("vertexai")}
+                className={`p-3 rounded border cursor-pointer transition-colors ${selectedProvider === "vertexai"
+                  ? "bg-neutral-700 border-blue-500 ring-1 ring-blue-500"
+                  : "bg-neutral-900 border-neutral-700 hover:border-neutral-500"
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded-full ${selectedProvider === "vertexai" ? "bg-blue-500" : "bg-neutral-600"}`} />
+                  <span className="text-sm font-medium text-neutral-100">Vertex AI</span>
+                </div>
+                <div className="text-[10px] text-neutral-400 space-y-1 pl-5">
+                  <div>• Vertex Search</div>
+                  <div>• Enterprise</div>
+                  <div>• Private</div>
+                </div>
+              </div>
+
+              <div
+                onClick={() => setSelectedProvider("openai")}
+                className={`p-3 rounded border cursor-pointer transition-colors ${selectedProvider === "openai"
+                  ? "bg-neutral-700 border-blue-500 ring-1 ring-blue-500"
+                  : "bg-neutral-900 border-neutral-700 hover:border-neutral-500"
+                  }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`w-3 h-3 rounded-full ${selectedProvider === "openai" ? "bg-green-500" : "bg-neutral-600"}`} />
+                  <span className="text-sm font-medium text-neutral-100">OpenAI</span>
+                </div>
+                <div className="text-[10px] text-neutral-400 space-y-1 pl-5">
+                  <div>• GPT Models</div>
+                  <div>• DALL-E</div>
+                  <div>• Extensive Tools</div>
+                </div>
+              </div>
+            </div>
+
+            {selectedProvider === "vertexai" && (
+              <div className="mt-3 space-y-2">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="block text-[10px] text-neutral-500 uppercase font-semibold mb-1">Region</label>
+                    <select className="w-full bg-neutral-900 border border-neutral-700 rounded p-1.5 text-xs text-neutral-300 focus:outline-none focus:border-neutral-500">
+                      <option value="us-central1">us-central1 (Iowa)</option>
+                      <option value="europe-west4">europe-west4 (Netherlands)</option>
+                      <option value="asia-northeast1">asia-northeast1 (Tokyo)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 p-2 bg-blue-900/20 border border-blue-800/30 rounded">
+                  <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-[11px] text-blue-200/80">
+                    Vertex AI requires configured Google Cloud credentials (ADC) and the Vertex AI API enabled in your project.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Model List with Icons & Favorites */}
+            <div className="mt-4 border-t border-neutral-700 pt-3">
+              <label className="block text-xs text-neutral-500 uppercase font-semibold mb-2">
+                Available Models & Capabilities
+              </label>
+              <div className="bg-neutral-900/50 rounded border border-neutral-700 max-h-[160px] overflow-y-auto">
+                {/* Empty State / Loading would go here if needed */}
+                {useWorkflowStore.getState().availableModels
+                  .filter(m => m.provider === selectedProvider)
+                  .map(m => {
+                    const isFav = useWorkflowStore.getState().favoriteModelIds.includes(m.id);
+                    return (
+                      <div key={m.id} className="flex items-center justify-between p-2 hover:bg-neutral-800/50 border-b border-neutral-800 last:border-0 group">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs text-neutral-300 font-medium truncate" title={m.id}>{m.label}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {/* Icons */}
+                            {m.capabilities?.supportsImageInput && <span title="Image Input/Output">🖼️</span>}
+                            {m.capabilities?.supportsVideo && <span title="Video Generation">🎥</span>}
+                            {m.capabilities?.supportsCodeExecution && <span title="Code Execution">💻</span>}
+                            {m.capabilities?.supportsGoogleSearch && <span title="Google Search">🔍</span>}
+                            {m.label.toLowerCase().includes('flash') && <span title="Flash / Fast Model">⚡</span>}
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            useWorkflowStore.getState().toggleFavoriteModel(m.id);
+                          }}
+                          className={`p-1 rounded hover:bg-neutral-700 transition-colors ${isFav ? 'text-yellow-500' : 'text-neutral-600 hover:text-neutral-400'}`}
+                          title={isFav ? "Remove from Favorites" : "Add to Favorites"}
+                        >
+                          <svg className="w-4 h-4" fill={isFav ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                          </svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                {useWorkflowStore.getState().availableModels.filter(m => m.provider === selectedProvider).length === 0 && (
+                  <div className="p-4 text-center text-xs text-neutral-500">
+                    No models found for this provider.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-400">{error}</p>}

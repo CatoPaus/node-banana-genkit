@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "id": "wf_1767013348188_xv5wnstvk",
+  "name": "Test Project",
+  "nodes": [
+    {
+      "id": "prompt-1",
+      "type": "prompt",
+      "position": {
+        "x": 672.3171064100401,
+        "y": 482.99018089878024
+      },
+      "data": {
+        "prompt": "nano"
+      },
+      "style": {
+        "width": 320,
+        "height": 220
+      },
+      "measured": {
+        "width": 320,
+        "height": 220
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "nanoBanana-2",
+      "type": "nanoBanana",
+      "position": {
+        "x": 1069.5134616223954,
+        "y": 432.32516159376087
+      },
+      "data": {
+        "inputImages": [],
+        "inputPrompt": "nano",
+        "outputImage": null,
+        "aspectRatio": "1:1",
+        "resolution": "4K",
+        "model": "nano-banana-pro",
+        "useGoogleSearch": false,
+        "status": "error",
+        "error": "NOT_FOUND: Model 'nano-banana-pro' not found"
+      },
+      "style": {
+        "width": 300,
+        "height": 300
+      },
+      "measured": {
+        "width": 300,
+        "height": 653
+      },
+      "selected": false,
+      "width": 300,
+      "height": 653,
+      "resizing": false,
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "prompt-1",
+      "sourceHandle": "text",
+      "target": "nanoBanana-2",
+      "targetHandle": "text",
+      "id": "edge-prompt-1-nanoBanana-2-text-text",
+      "selected": false
+    }
+  ],
+  "edgeStyle": "curved"
+}

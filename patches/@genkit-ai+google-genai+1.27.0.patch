@@ -1,0 +1,76 @@
+diff --git a/node_modules/@genkit-ai/google-genai/lib/googleai/veo.js b/node_modules/@genkit-ai/google-genai/lib/googleai/veo.js
+index dfbccb8..309c709 100644
+--- a/node_modules/@genkit-ai/google-genai/lib/googleai/veo.js
++++ b/node_modules/@genkit-ai/google-genai/lib/googleai/veo.js
+@@ -126,7 +126,7 @@ function defineModel(name, pluginOptions) {
+         veoPredictRequest,
+         clientOptions
+       );
+-      return fromVeoOperation(response);
++      return fromVeoOperation(response, apiKey);
+     },
+     async check(operation) {
+       const apiKey = (0, import_utils.calculateApiKey)(pluginOptions?.apiKey, void 0);
+@@ -135,7 +135,7 @@ function defineModel(name, pluginOptions) {
+         operation.id,
+         clientOptions
+       );
+-      return fromVeoOperation(response);
++      return fromVeoOperation(response, apiKey);
+     }
+   });
+ }
+@@ -150,7 +150,7 @@ function toVeoParameters(request) {
+   delete out.version;
+   return out;
+ }
+-function fromVeoOperation(apiOp) {
++function fromVeoOperation(apiOp, apiKey) {
+   const res = { id: apiOp.name };
+   if (apiOp.done !== void 0) {
+     res.done = apiOp.done;
+@@ -166,9 +166,13 @@ function fromVeoOperation(apiOp) {
+         role: "model",
+         content: apiOp.response.generateVideoResponse.generatedSamples.map(
+           (s) => {
++            let finalUrl = s.video.uri;
++            if (apiKey) {
++              finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'key=' + apiKey;
++            }
+             return {
+               media: {
+-                url: s.video.uri
++                url: finalUrl
+               }
+             };
+           }
+diff --git a/node_modules/@genkit-ai/google-genai/lib/vertexai/converters.js b/node_modules/@genkit-ai/google-genai/lib/vertexai/converters.js
+index 52d51a5..2eec847 100644
+--- a/node_modules/@genkit-ai/google-genai/lib/vertexai/converters.js
++++ b/node_modules/@genkit-ai/google-genai/lib/vertexai/converters.js
+@@ -100,7 +100,7 @@ function toImagenParameters(request) {
+     ...request?.config
+   };
+   for (const k in params) {
+-    if (!params[k]) delete params[k];
++    if (params[k] === void 0 || params[k] === null) delete params[k];
+   }
+   return params;
+ }
+diff --git a/node_modules/@genkit-ai/google-genai/lib/vertexai/imagen.js b/node_modules/@genkit-ai/google-genai/lib/vertexai/imagen.js
+index 8557a74..e8ff756 100644
+--- a/node_modules/@genkit-ai/google-genai/lib/vertexai/imagen.js
++++ b/node_modules/@genkit-ai/google-genai/lib/vertexai/imagen.js
+@@ -119,7 +119,11 @@ const KNOWN_MODELS = {
+   ),
+   "imagen-4.0-ultra-generate-preview-06-06": commonRef(
+     "imagen-4.0-ultra-generate-preview-06-06"
+-  )
++  ),
++  "imagen-4.0-generate-001": commonRef("imagen-4.0-generate-001"),
++  "imagen-4.0-ultra-generate-001": commonRef("imagen-4.0-ultra-generate-001"),
++  "imagen-4.0-fast-generate-001": commonRef("imagen-4.0-fast-generate-001"),
++  "imagen-4.0-upscale-preview": commonRef("imagen-4.0-upscale-preview")
+ };
+ function isImagenModelName(value) {
+   return !!value?.startsWith("imagen-");

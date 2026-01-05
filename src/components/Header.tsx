@@ -15,6 +15,7 @@ export function Header() {
     setWorkflowMetadata,
     saveToFile,
     loadWorkflow,
+    provider,
   } = useWorkflowStore();
 
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -128,6 +129,12 @@ export function Header() {
             {isProjectConfigured ? (
               <>
                 <span className="text-sm text-neutral-300">{workflowName}</span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-neutral-800 border border-neutral-700 ml-1">
+                  <div className={`w-2 h-2 rounded-full ${provider === "vertexai" ? "bg-blue-500" : "bg-green-500"}`} />
+                  <span className="text-[10px] text-neutral-400 font-medium">
+                    {provider === "vertexai" ? "Vertex AI" : "Google AI"}
+                  </span>
+                </div>
                 <button
                   onClick={() => canSave ? saveToFile() : handleOpenSettings()}
                   disabled={isSaving}

@@ -21,8 +21,8 @@ import {
   ImageInputNode,
   AnnotationNode,
   PromptNode,
-  NanoBananaNode,
-  LLMGenerateNode,
+  UniversalGeneratorNode,
+
   SplitGridNode,
   OutputNode,
 } from "./nodes";
@@ -32,15 +32,15 @@ import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { EdgeToolbar } from "./EdgeToolbar";
 import { GlobalImageHistory } from "./GlobalImageHistory";
 import { GroupBackgroundsPortal, GroupControlsOverlay } from "./GroupsOverlay";
-import { NodeType, NanoBananaNodeData } from "@/types";
+import { NodeType, UniversalGeneratorNodeData } from "@/types";
 import { detectAndSplitGrid } from "@/utils/gridSplitter";
 
 const nodeTypes: NodeTypes = {
   imageInput: ImageInputNode,
   annotation: AnnotationNode,
   prompt: PromptNode,
-  nanoBanana: NanoBananaNode,
-  llmGenerate: LLMGenerateNode,
+  universalGenerator: UniversalGeneratorNode,
+
   splitGrid: SplitGridNode,
   output: OutputNode,
 };
@@ -79,10 +79,9 @@ const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: string[]
       return { inputs: ["image"], outputs: ["image"] };
     case "prompt":
       return { inputs: [], outputs: ["text"] };
-    case "nanoBanana":
+    case "universalGenerator":
       return { inputs: ["image", "text"], outputs: ["image"] };
-    case "llmGenerate":
-      return { inputs: ["text", "image"], outputs: ["text"] };
+
     case "splitGrid":
       return { inputs: ["image"], outputs: ["reference"] };
     case "output":
@@ -113,7 +112,7 @@ const isMouseWheel = (event: WheelEvent): boolean => {
   // Fallback: large delta values suggest mouse wheel
   const threshold = 50;
   return Math.abs(event.deltaY) >= threshold &&
-         Math.abs(event.deltaY) % 40 === 0; // Mouse deltas often in multiples
+    Math.abs(event.deltaY) % 40 === 0; // Mouse deltas often in multiples
 };
 
 // Check if an element can scroll and has room to scroll in the given direction
@@ -317,17 +316,17 @@ export function WorkflowCanvas() {
               // Create the connection
               const connection: Connection = isFromSource
                 ? {
-                    source: connectionState.fromNode.id,
-                    sourceHandle: fromHandleId,
-                    target: targetNodeId,
-                    targetHandle: compatibleHandle,
-                  }
+                  source: connectionState.fromNode.id,
+                  sourceHandle: fromHandleId,
+                  target: targetNodeId,
+                  targetHandle: compatibleHandle,
+                }
                 : {
-                    source: targetNodeId,
-                    sourceHandle: compatibleHandle,
-                    target: connectionState.fromNode.id,
-                    targetHandle: fromHandleId,
-                  };
+                  source: targetNodeId,
+                  sourceHandle: compatibleHandle,
+                  target: connectionState.fromNode.id,
+                  targetHandle: fromHandleId,
+                };
 
               if (isValidConnection(connection)) {
                 handleConnect(connection);
@@ -361,8 +360,8 @@ export function WorkflowCanvas() {
 
       // Get the output image from the source node
       let sourceImage: string | null = null;
-      if (sourceNode.type === "nanoBanana") {
-        sourceImage = (sourceNode.data as NanoBananaNodeData).outputImage;
+      if (sourceNode.type === "universalGenerator") {
+        sourceImage = (sourceNode.data as UniversalGeneratorNodeData).outputImage;
       } else if (sourceNode.type === "imageInput") {
         sourceImage = (sourceNode.data as { image: string | null }).image;
       } else if (sourceNode.type === "annotation") {
@@ -374,7 +373,7 @@ export function WorkflowCanvas() {
         return;
       }
 
-      const sourceNodeData = sourceNode.type === "nanoBanana" ? sourceNode.data as NanoBananaNodeData : null;
+      const sourceNodeData = sourceNode.type === "universalGenerator" ? sourceNode.data as UniversalGeneratorNodeData : null;
       setIsSplitting(true);
 
       try {
@@ -447,7 +446,7 @@ export function WorkflowCanvas() {
         return (node.data as { image: string | null }).image;
       case "annotation":
         return (node.data as { outputImage: string | null }).outputImage;
-      case "nanoBanana":
+      case "universalGenerator":
         return (node.data as { outputImage: string | null }).outputImage;
       default:
         return null;
@@ -492,18 +491,14 @@ export function WorkflowCanvas() {
       if (handleType === "image") {
         if (nodeType === "annotation" || nodeType === "output" || nodeType === "splitGrid") {
           targetHandleId = "image";
-        } else if (nodeType === "nanoBanana") {
+        } else if (nodeType === "universalGenerator") {
           targetHandleId = "image";
         } else if (nodeType === "imageInput") {
           sourceHandleIdForNewNode = "image";
         }
       } else if (handleType === "text") {
-        if (nodeType === "nanoBanana" || nodeType === "llmGenerate") {
+        if (nodeType === "universalGenerator") {
           targetHandleId = "text";
-          // llmGenerate also has a text output
-          if (nodeType === "llmGenerate") {
-            sourceHandleIdForNewNode = "text";
-          }
         } else if (nodeType === "prompt") {
           sourceHandleIdForNewNode = "text";
         }
@@ -574,7 +569,7 @@ export function WorkflowCanvas() {
   }, []);
 
   // Custom wheel handler for macOS trackpad support
-  const handleWheel = useCallback((event: React.WheelEvent) => {
+  const handleWheel = useCallback((event: WheelEvent) => {
     // Check if scrolling over a scrollable element (e.g., textarea, scrollable div)
     const target = event.target as HTMLElement;
     const scrollableElement = findScrollableAncestor(target, event.deltaX, event.deltaY);
@@ -594,8 +589,8 @@ export function WorkflowCanvas() {
 
     // On macOS, differentiate trackpad from mouse
     if (isMacOS) {
-      const nativeEvent = event.nativeEvent;
-      if (isMouseWheel(nativeEvent)) {
+      // We are now handling the native event directly
+      if (isMouseWheel(event)) {
         // Mouse wheel → zoom
         event.preventDefault();
         if (event.deltaY < 0) zoomIn();
@@ -618,6 +613,18 @@ export function WorkflowCanvas() {
     if (event.deltaY < 0) zoomIn();
     else zoomOut();
   }, [zoomIn, zoomOut, getViewport, setViewport]);
+
+  // Manually attach wheel listener to support non-passive event (required for preventDefault)
+  useEffect(() => {
+    const el = reactFlowWrapper.current;
+    if (!el) return;
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+    };
+  }, [handleWheel]);
 
   // Get copy/paste functions and clipboard from store
   const { copySelectedNodes, pasteNodes, clearClipboard, clipboard } = useWorkflowStore();
@@ -661,11 +668,9 @@ export function WorkflowCanvas() {
             nodeType = "imageInput";
             break;
           case "g":
-            nodeType = "nanoBanana";
+            nodeType = "universalGenerator";
             break;
-          case "l":
-            nodeType = "llmGenerate";
-            break;
+
           case "a":
             nodeType = "annotation";
             break;
@@ -679,8 +684,8 @@ export function WorkflowCanvas() {
             imageInput: { width: 300, height: 280 },
             annotation: { width: 300, height: 280 },
             prompt: { width: 320, height: 220 },
-            nanoBanana: { width: 300, height: 300 },
-            llmGenerate: { width: 320, height: 360 },
+            universalGenerator: { width: 300, height: 300 },
+
             splitGrid: { width: 300, height: 320 },
             output: { width: 320, height: 320 },
           };
@@ -1018,8 +1023,8 @@ export function WorkflowCanvas() {
               {dropType === "workflow"
                 ? "Drop to load workflow"
                 : dropType === "node"
-                ? "Drop to create node"
-                : "Drop image to create node"}
+                  ? "Drop to create node"
+                  : "Drop image to create node"}
             </p>
           </div>
         </div>
@@ -1059,7 +1064,7 @@ export function WorkflowCanvas() {
         maxZoom={4}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         panActivationKeyCode="Space"
-        onWheel={handleWheel}
+        // onWheel={handleWheel} - Handled manually in useEffect to support passive: false
         className="bg-neutral-900"
         defaultEdgeOptions={{
           type: "editable",

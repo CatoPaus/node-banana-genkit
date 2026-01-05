@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useWorkflowStore } from "@/store/workflowStore";
-import { SplitGridNodeData, AspectRatio, Resolution, ModelType } from "@/types";
+import { SplitGridNodeData, AspectRatio, Resolution, ModelType, ModelInfo } from "@/types";
 
 interface SplitGridSettingsModalProps {
   nodeId: string;
@@ -14,10 +14,7 @@ const TARGET_COUNT_OPTIONS = [4, 6, 8, 9, 10] as const;
 
 const ASPECT_RATIOS: AspectRatio[] = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"];
 const RESOLUTIONS: Resolution[] = ["1K", "2K", "4K"];
-const MODELS: { value: ModelType; label: string }[] = [
-  { value: "nano-banana", label: "Nano Banana" },
-  { value: "nano-banana-pro", label: "Nano Banana Pro" },
-];
+
 
 // Calculate grid dimensions from target count
 const getGridDimensions = (count: number): { rows: number; cols: number } => {
@@ -36,7 +33,7 @@ export function SplitGridSettingsModal({
   nodeData,
   onClose,
 }: SplitGridSettingsModalProps) {
-  const { updateNodeData, addNode, onConnect, addEdgeWithType, getNodeById } = useWorkflowStore();
+  const { updateNodeData, addNode, onConnect, addEdgeWithType, getNodeById, availableModels, fetchModels, provider } = useWorkflowStore();
 
   const [targetCount, setTargetCount] = useState(nodeData.targetCount);
   const [defaultPrompt, setDefaultPrompt] = useState(nodeData.defaultPrompt);
@@ -44,6 +41,19 @@ export function SplitGridSettingsModal({
   const [resolution, setResolution] = useState(nodeData.generateSettings.resolution);
   const [model, setModel] = useState(nodeData.generateSettings.model);
   const [useGoogleSearch, setUseGoogleSearch] = useState(nodeData.generateSettings.useGoogleSearch);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  useEffect(() => {
+    if (availableModels.length === 0) {
+      setLoadingModels(true);
+      fetchModels().finally(() => setLoadingModels(false));
+    }
+  }, [availableModels.length, fetchModels]);
+
+  // Filter models similar to UniversalGeneratorNode
+  const filteredModels = availableModels
+    .filter(m => m.provider === provider)
+    .sort((a, b) => a.label.localeCompare(b.label));
 
   const { rows, cols } = getGridDimensions(targetCount);
   const isNanoBananaPro = model === "nano-banana-pro";
@@ -90,7 +100,7 @@ export function SplitGridSettingsModal({
       });
 
       // Create nanoBanana node (to the right of imageInput)
-      const nanoBananaId = addNode("nanoBanana", {
+      const nanoBananaId = addNode("universalGenerator", {
         x: clusterX + imageInputWidth + horizontalGap,
         y: clusterY,
       });
@@ -138,7 +148,7 @@ export function SplitGridSettingsModal({
       childNodeIds.push({
         imageInput: imageInputId,
         prompt: promptId,
-        nanoBanana: nanoBananaId,
+        universalGenerator: nanoBananaId,
       });
     }
 
@@ -194,11 +204,10 @@ export function SplitGridSettingsModal({
                   <button
                     key={count}
                     onClick={() => setTargetCount(count)}
-                    className={`flex-1 p-2 rounded border transition-colors ${
-                      targetCount === count
-                        ? "border-blue-500 bg-blue-500/20"
-                        : "border-neutral-600 hover:border-neutral-500"
-                    }`}
+                    className={`flex-1 p-2 rounded border transition-colors ${targetCount === count
+                      ? "border-blue-500 bg-blue-500/20"
+                      : "border-neutral-600 hover:border-neutral-500"
+                      }`}
                   >
                     <div
                       className="aspect-video mx-auto w-12 grid gap-0.5"
@@ -210,9 +219,8 @@ export function SplitGridSettingsModal({
                       {Array.from({ length: count }).map((_, i) => (
                         <div
                           key={i}
-                          className={`rounded-sm ${
-                            targetCount === count ? "bg-blue-400" : "bg-neutral-500"
-                          }`}
+                          className={`rounded-sm ${targetCount === count ? "bg-blue-400" : "bg-neutral-500"
+                            }`}
                         />
                       ))}
                     </div>
@@ -256,11 +264,22 @@ export function SplitGridSettingsModal({
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value as ModelType)}
-                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded text-neutral-100 text-sm focus:outline-none focus:border-neutral-500"
+                  disabled={loadingModels}
+                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded text-neutral-100 text-sm focus:outline-none focus:border-neutral-500 disabled:opacity-50"
                 >
-                  {MODELS.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
+                  {loadingModels ? (
+                    <option>Loading models...</option>
+                  ) : (
+                    <>
+                      {filteredModels.length > 0 ? (
+                        filteredModels.map((m) => (
+                          <option key={m.id} value={m.id}>{m.label}</option>
+                        ))
+                      ) : (
+                        <option value={model}>{model} (Current)</option>
+                      )}
+                    </>
+                  )}
                 </select>
               </div>
 

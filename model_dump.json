@@ -1,0 +1,510 @@
+[
+  {
+    "key": "googleai/gemini-3-pro-image-preview",
+    "provider": "unknown",
+    "metadata": {
+      "model": {
+        "label": "googleai/gemini-3-pro-image-preview",
+        "customOptions": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "description": "A specific version of a model family, e.g. `gemini-2.0-flash` for the `googleai` family."
+            },
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Controls the degree of randomness in token selection. A lower value is good for a more predictable response. A higher value leads to more diverse or unexpected results. The default value is 1.0."
+            },
+            "maxOutputTokens": {
+              "type": "number",
+              "description": "The maximum number of tokens to include in the response."
+            },
+            "topK": {
+              "type": "number",
+              "description": "The maximum number of tokens to consider when sampling."
+            },
+            "topP": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Decides how many possible words to consider. A higher value means that the model looks at more possible words, even the less likely ones, which makes the generated text more diverse. The default value is 0.95."
+            },
+            "stopSequences": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 5,
+              "description": "Set of character sequences (up to 5) that will stop output generation."
+            },
+            "apiKey": {
+              "type": "string",
+              "description": "Overrides the plugin-configured API key, if specified."
+            },
+            "baseUrl": {
+              "type": "string",
+              "description": "Overrides the plugin-configured or default baseUrl, if specified."
+            },
+            "apiVersion": {
+              "type": "string",
+              "description": "Overrides the plugin-configured or default apiVersion, if specified."
+            },
+            "safetySettings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "HARM_CATEGORY_UNSPECIFIED",
+                      "HARM_CATEGORY_HATE_SPEECH",
+                      "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                      "HARM_CATEGORY_HARASSMENT",
+                      "HARM_CATEGORY_DANGEROUS_CONTENT"
+                    ]
+                  },
+                  "threshold": {
+                    "type": "string",
+                    "enum": [
+                      "BLOCK_LOW_AND_ABOVE",
+                      "BLOCK_MEDIUM_AND_ABOVE",
+                      "BLOCK_ONLY_HIGH",
+                      "BLOCK_NONE"
+                    ]
+                  }
+                },
+                "required": [
+                  "category",
+                  "threshold"
+                ],
+                "additionalProperties": true
+              },
+              "description": "Adjust how likely you are to see responses that could be harmful. Content is blocked based on the probability that it is harmful."
+            },
+            "codeExecution": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": false
+                }
+              ],
+              "description": "Enables the model to generate and run code."
+            },
+            "contextCache": {
+              "type": "boolean",
+              "description": "Context caching allows you to save and reuse precomputed input tokens that you wish to use repeatedly."
+            },
+            "functionCallingConfig": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "MODE_UNSPECIFIED",
+                    "AUTO",
+                    "ANY",
+                    "NONE"
+                  ]
+                },
+                "allowedFunctionNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "additionalProperties": true,
+              "description": "Controls how the model uses the provided tools (function declarations). With AUTO (Default) mode, the model decides whether to generate a natural language response or suggest a function call based on the prompt and context. With ANY, the model is constrained to always predict a function call and guarantee function schema adherence. With NONE, the model is prohibited from making function calls."
+            },
+            "responseModalities": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "TEXT",
+                  "IMAGE",
+                  "AUDIO"
+                ]
+              },
+              "description": "The modalities to be used in response. Only supported for 'gemini-2.0-flash-exp' model at present."
+            },
+            "googleSearchRetrieval": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              ],
+              "description": "Retrieve public web data for grounding, powered by Google Search."
+            },
+            "fileSearch": {
+              "type": "object",
+              "properties": {
+                "fileSearchStoreNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The names of the fileSearchStores to retrieve from. Example: fileSearchStores/my-file-search-store-123"
+                },
+                "metadataFilter": {
+                  "type": "string",
+                  "description": "Metadata filter to apply to the semantic retrieval documents and chunks."
+                },
+                "topK": {
+                  "type": "number",
+                  "description": "The number of semantic retrieval chunks to retrieve."
+                }
+              },
+              "required": [
+                "fileSearchStoreNames"
+              ],
+              "additionalProperties": true
+            },
+            "urlContext": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": true
+                }
+              ],
+              "description": "Return grounding metadata from links included in the query"
+            },
+            "thinkingConfig": {
+              "type": "object",
+              "properties": {
+                "includeThoughts": {
+                  "type": "boolean",
+                  "description": "Indicates whether to include thoughts in the response.If true, thoughts are returned only if the model supports thought and thoughts are available."
+                },
+                "thinkingBudget": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 24576,
+                  "description": "For Gemini 2.5 - Indicates the thinking budget in tokens. 0 is DISABLED. -1 is AUTOMATIC. The default values and allowed ranges are model dependent. The thinking budget parameter gives the model guidance on the number of thinking tokens it can use when generating a response. A greater number of tokens is typically associated with more detailed thinking, which is needed for solving more complex tasks. "
+                },
+                "thinkingLevel": {
+                  "type": "string",
+                  "enum": [
+                    "LOW",
+                    "MEDIUM",
+                    "HIGH"
+                  ],
+                  "description": "For Gemini 3.0 - Indicates the thinking level. A higher level is associated with more detailed thinking, which is needed for solving more complex tasks."
+                }
+              },
+              "additionalProperties": true
+            },
+            "imageConfig": {
+              "type": "object",
+              "properties": {
+                "aspectRatio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "2:3",
+                    "3:2",
+                    "3:4",
+                    "4:3",
+                    "4:5",
+                    "5:4",
+                    "9:16",
+                    "16:9",
+                    "21:9"
+                  ]
+                },
+                "imageSize": {
+                  "type": "string",
+                  "enum": [
+                    "1K",
+                    "2K",
+                    "4K"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "supports": {
+          "multiturn": true,
+          "media": true,
+          "tools": true,
+          "toolChoice": true,
+          "systemRole": true,
+          "constrained": "no-tools"
+        }
+      }
+    }
+  },
+  {
+    "key": "vertexai/gemini-3-pro-image-preview",
+    "provider": "unknown",
+    "metadata": {
+      "model": {
+        "label": "vertexai/gemini-3-pro-image-preview",
+        "customOptions": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "description": "A specific version of a model family, e.g. `gemini-2.0-flash` for the `googleai` family."
+            },
+            "temperature": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 2,
+              "description": "Controls the degree of randomness in token selection. A lower value is good for a more predictable response. A higher value leads to more diverse or unexpected results. The default value is 1.0."
+            },
+            "maxOutputTokens": {
+              "type": "number",
+              "description": "The maximum number of tokens to include in the response."
+            },
+            "topK": {
+              "type": "number",
+              "description": "The maximum number of tokens to consider when sampling."
+            },
+            "topP": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Decides how many possible words to consider. A higher value means that the model looks at more possible words, even the less likely ones, which makes the generated text more diverse. The default value is 0.95."
+            },
+            "stopSequences": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 5,
+              "description": "Set of character sequences (up to 5) that will stop output generation."
+            },
+            "apiKey": {
+              "type": "string",
+              "description": "Overrides the plugin-configured API key, if specified."
+            },
+            "labels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Key-value labels to attach to the request for cost tracking."
+            },
+            "location": {
+              "type": "string",
+              "description": "Google Cloud region e.g. us-central1."
+            },
+            "safetySettings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "HARM_CATEGORY_UNSPECIFIED",
+                      "HARM_CATEGORY_HATE_SPEECH",
+                      "HARM_CATEGORY_DANGEROUS_CONTENT",
+                      "HARM_CATEGORY_HARASSMENT",
+                      "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+                    ]
+                  },
+                  "threshold": {
+                    "type": "string",
+                    "enum": [
+                      "BLOCK_LOW_AND_ABOVE",
+                      "BLOCK_MEDIUM_AND_ABOVE",
+                      "BLOCK_ONLY_HIGH",
+                      "BLOCK_NONE"
+                    ]
+                  }
+                },
+                "required": [
+                  "category",
+                  "threshold"
+                ],
+                "additionalProperties": true
+              },
+              "description": "Adjust how likely you are to see responses that could be harmful. Content is blocked based on the probability that it is harmful."
+            },
+            "vertexRetrieval": {
+              "type": "object",
+              "properties": {
+                "datastore": {
+                  "type": "object",
+                  "properties": {
+                    "projectId": {
+                      "type": "string",
+                      "description": "Google Cloud Project ID."
+                    },
+                    "location": {
+                      "type": "string",
+                      "description": "Google Cloud region e.g. us-central1."
+                    },
+                    "dataStoreId": {
+                      "type": "string",
+                      "description": "The data store id, when project id and location are provided as separate options. Alternatively, the full path to the data store should be provided in the form: \"projects/{project}/locations/{location}/collections/default_collection/dataStores/{data_store}\"."
+                    }
+                  },
+                  "required": [
+                    "dataStoreId"
+                  ],
+                  "additionalProperties": true,
+                  "description": "Vertex AI Search data store details"
+                },
+                "disableAttribution": {
+                  "type": "boolean",
+                  "description": "Disable using the search data in detecting grounding attribution. This does not affect how the result is given to the model for generation."
+                }
+              },
+              "required": [
+                "datastore"
+              ],
+              "additionalProperties": true,
+              "description": "Retrieve from Vertex AI Search data store for grounding generative responses."
+            },
+            "googleSearchRetrieval": {
+              "type": "object",
+              "properties": {
+                "disableAttribution": {
+                  "type": "boolean",
+                  "description": "Disable using the search data in detecting grounding attribution. This does not affect how the result is given to the model for generation."
+                }
+              },
+              "additionalProperties": true,
+              "description": "Retrieve public web data for grounding, powered by Google Search."
+            },
+            "functionCallingConfig": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "MODE_UNSPECIFIED",
+                    "AUTO",
+                    "ANY",
+                    "NONE"
+                  ]
+                },
+                "allowedFunctionNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "streamFunctionCallArguments": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": true,
+              "description": "Controls how the model uses the provided tools (function declarations). With AUTO (Default) mode, the model decides whether to generate a natural language response or suggest a function call based on the prompt and context. With ANY, the model is constrained to always predict a function call and guarantee function schema adherence. With NONE, the model is prohibited from making function calls."
+            },
+            "retrievalConfig": {
+              "type": "object",
+              "properties": {
+                "latLng": {
+                  "type": "object",
+                  "properties": {
+                    "latitude": {
+                      "type": "number"
+                    },
+                    "longitude": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": true,
+                  "description": "User location for Google search or Google maps grounding."
+                },
+                "languageCode": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "thinkingConfig": {
+              "type": "object",
+              "properties": {
+                "includeThoughts": {
+                  "type": "boolean",
+                  "description": "Indicates whether to include thoughts in the response.If true, thoughts are returned only if the model supports thought and thoughts are available."
+                },
+                "thinkingBudget": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 24576,
+                  "description": "For Gemini 2.5 - Indicates the thinking budget in tokens. 0 is DISABLED. -1 is AUTOMATIC. The default values and allowed ranges are model dependent. The thinking budget parameter gives the model guidance on the number of thinking tokens it can use when generating a response. A greater number of tokens is typically associated with more detailed thinking, which is needed for solving more complex tasks. "
+                },
+                "thinkingLevel": {
+                  "type": "string",
+                  "enum": [
+                    "LOW",
+                    "MEDIUM",
+                    "HIGH"
+                  ],
+                  "description": "For Gemini 3.0 - Indicates the thinking level. A higher level is associated with more detailed thinking, which is needed for solving more complex tasks."
+                }
+              },
+              "additionalProperties": true
+            },
+            "imageConfig": {
+              "type": "object",
+              "properties": {
+                "aspectRatio": {
+                  "type": "string",
+                  "enum": [
+                    "1:1",
+                    "2:3",
+                    "3:2",
+                    "3:4",
+                    "4:3",
+                    "4:5",
+                    "5:4",
+                    "9:16",
+                    "16:9",
+                    "21:9"
+                  ]
+                },
+                "imageSize": {
+                  "type": "string",
+                  "enum": [
+                    "1K",
+                    "2K",
+                    "4K"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "supports": {
+          "multiturn": true,
+          "media": true,
+          "tools": true,
+          "toolChoice": true,
+          "systemRole": true,
+          "constrained": "no-tools"
+        }
+      }
+    }
+  }
+]

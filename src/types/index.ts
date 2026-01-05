@@ -5,30 +5,55 @@ export type NodeType =
   | "imageInput"
   | "annotation"
   | "prompt"
-  | "nanoBanana"
-  | "llmGenerate"
+  | "universalGenerator"
+
   | "splitGrid"
   | "output";
 
-// Aspect Ratios (supported by both Nano Banana and Nano Banana Pro)
+// Aspect Ratios (supported by both Universal Generator and Universal Generator Pro)
 export type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9";
 
 // Resolution Options (only supported by Nano Banana Pro)
 export type Resolution = "1K" | "2K" | "4K";
 
 // Image Generation Model Options
-export type ModelType = "nano-banana" | "nano-banana-pro";
+export type ModelType = string;
 
 // LLM Provider Options
-export type LLMProvider = "google" | "openai";
+
+
+// AI Service Provider Options
+export type AIProvider = "googleai" | "vertexai" | "openai";
+
+export interface ModelInfo {
+  id: string;
+  label: string;
+  provider: string; // "googleai" | "vertexai" | "openai"
+  description?: string;
+  capabilities?: {
+    supportsImageInput: boolean;
+    supportsAspectRatio: boolean;
+    supportsResolution: boolean;
+    supportsGoogleSearch: boolean;
+    supportsVideo?: boolean;
+    supportsCodeExecution?: boolean;
+    supportsTools?: boolean;
+    supportsMultimodal?: boolean;
+    options?: {
+      key: string;
+      label: string;
+      type: string;
+      values?: string[];
+      min?: number;
+      max?: number;
+      description?: string;
+    }[];
+    raw?: any;
+  };
+}
 
 // LLM Model Options
-export type LLMModelType =
-  | "gemini-2.5-flash"
-  | "gemini-3-flash-preview"
-  | "gemini-3-pro-preview"
-  | "gpt-4.1-mini"
-  | "gpt-4.1-nano";
+
 
 // Node Status
 export type NodeStatus = "idle" | "loading" | "complete" | "error";
@@ -118,8 +143,8 @@ export interface ImageHistoryItem {
   model: ModelType;
 }
 
-// Nano Banana Node Data (Image Generation)
-export interface NanoBananaNodeData extends BaseNodeData {
+// Universal Generator Node Data (Image Generation)
+export interface UniversalGeneratorNodeData extends BaseNodeData {
   inputImages: string[]; // Now supports multiple images
   inputPrompt: string | null;
   outputImage: string | null;
@@ -128,20 +153,11 @@ export interface NanoBananaNodeData extends BaseNodeData {
   model: ModelType;
   useGoogleSearch: boolean; // Only available for Nano Banana Pro
   status: NodeStatus;
+  operationId?: string; // For long-running operations (Veo)
   error: string | null;
 }
 
-// LLM Generate Node Data (Text Generation)
-export interface LLMGenerateNodeData extends BaseNodeData {
-  inputPrompt: string | null;
-  outputText: string | null;
-  provider: LLMProvider;
-  model: LLMModelType;
-  temperature: number;
-  maxTokens: number;
-  status: NodeStatus;
-  error: string | null;
-}
+
 
 // Output Node Data
 export interface OutputNodeData extends BaseNodeData {
@@ -162,7 +178,7 @@ export interface SplitGridNodeData extends BaseNodeData {
   childNodeIds: Array<{
     imageInput: string;
     prompt: string;
-    nanoBanana: string;
+    universalGenerator: string;
   }>;
   gridRows: number;
   gridCols: number;
@@ -176,8 +192,8 @@ export type WorkflowNodeData =
   | ImageInputNodeData
   | AnnotationNodeData
   | PromptNodeData
-  | NanoBananaNodeData
-  | LLMGenerateNodeData
+  | UniversalGeneratorNodeData
+
   | SplitGridNodeData
   | OutputNodeData;
 
@@ -213,20 +229,9 @@ export interface GenerateResponse {
   error?: string;
 }
 
-// API Request/Response types for LLM Text Generation
-export interface LLMGenerateRequest {
-  prompt: string;
-  provider: LLMProvider;
-  model: LLMModelType;
-  temperature?: number;
-  maxTokens?: number;
-}
 
-export interface LLMGenerateResponse {
-  success: boolean;
-  text?: string;
-  error?: string;
-}
+
+
 
 // Tool Types for annotation
 export type ToolType = "select" | "rectangle" | "circle" | "arrow" | "freehand" | "text";
